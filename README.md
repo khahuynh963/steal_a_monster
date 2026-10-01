@@ -42,7 +42,7 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/khahuynh963/steal_a_m
 
 | Nhóm Tính Năng | Mô Tả Chi Tiết |
 |---|---|
-| 🥷 **Auto Steal Monsters** | • Tự động quét toàn bộ căn cứ của người chơi khác trong server.<br>• Ưu tiên chọn quái vật giá trị cao nhất.<br>• Tự động dịch chuyển tiếp cận, bế quái vật lên đầu và tẩu thoát về căn cứ an toàn.<br>• **Avoid Lockdown**: Tự động né các căn cứ đang bật khiên bảo vệ. |
+| 🥷 **Auto Steal Monsters** | • Tự động quét toàn bộ quái vật trong các căn cứ đối thủ trên server (bao gồm cả các quái vật khủng như *Celestial Emperor*, *Dragon*, v.v.).<br>• Ưu tiên chọn quái vật giá trị cao nhất.<br>• **Ghim Đứng Yên Giữ Nút**: Tự động ghim cố định vị trí trong thời gian giữ nút (Hold Duration) chuẩn server để không bị văng ra xa.<br>• **Tẩu Thoát Tức Thì**: Sau khi quái vật đã bế lên đầu, tự kích hoạt Super Speed phóng thẳng về căn cứ an toàn.<br>• **Avoid Lockdown**: Tự động né các căn cứ đang bật khiên bảo vệ. |
 | 🛒 **Auto Buy Conveyor** | • Tự động quét và mua quái vật trên băng chuyền trung tâm ngay khi xuất hiện.<br>• Hỗ trợ bộ lọc độ hiếm tối thiểu (`Rare+`, `Epic+`, `Legendary+`, `Celestial+`). |
 | 💰 **Auto Collect Coins** | • Tự động thu thập toàn bộ tiền vàng do quái vật trong căn cứ sinh ra mà không cần chạy bộ giẫm ô. |
 | 🚨 **Auto Base Defense** | • Tự động phát hiện khi có kẻ lạ bước vào bán kính căn cứ của bạn.<br>• Tự động kích hoạt **Lockdown** ngay lập tức để bảo vệ đàn quái vật khỏi bị cướp. |

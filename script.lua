@@ -31,6 +31,14 @@ pcall(function()
     VirtualInputManager = game:GetService("VirtualInputManager")
 end)
 
+local ProximityPromptService = nil
+pcall(function()
+    ProximityPromptService = game:GetService("ProximityPromptService")
+end)
+
+local isHoldingPrompt = false
+local isStealingAction = false
+
 local LocalPlayer = Players.LocalPlayer
 
 -- Khai báo ScreenGui trước để các hàm kiểm tra con cháu không bị lỗi nil
@@ -152,35 +160,41 @@ local function simulateClick(btn)
     return success
 end
 
--- ── ProximityPrompt Trigger ──
-local function firePrompt(prompt)
+-- ── ProximityPrompt Trigger (Hỗ trợ giữ nút chuẩn server) ──
+local function firePrompt(prompt, requiredHold)
     if not prompt or not prompt:IsA("ProximityPrompt") then return false end
     if not prompt.Enabled then return false end
     
-    local oldHold = prompt.HoldDuration
-    local oldDist = prompt.MaxActivationDistance
-    pcall(function()
-        prompt.HoldDuration = 0
-        prompt.MaxActivationDistance = 99999
-    end)
+    local holdTime = requiredHold or prompt.HoldDuration or 0
+    if holdTime <= 0 then holdTime = 0.2 end
     
     local ok = false
+    
+    -- 1. Thử gọi fireproximityprompt với tham số holdTime
     pcall(function()
         if fireproximityprompt then
-            fireproximityprompt(prompt)
+            fireproximityprompt(prompt, holdTime)
             ok = true
-        elseif prompt.InputHoldBegin then
+        end
+    end)
+    
+    -- 2. Mô phỏng InputHoldBegin -> Chờ đủ thời gian thực tế -> InputHoldEnd
+    pcall(function()
+        if prompt.InputHoldBegin and prompt.InputHoldEnd then
             prompt:InputHoldBegin()
-            task.wait(0.05)
+            task.wait(holdTime + 0.1)
             prompt:InputHoldEnd()
             ok = true
         end
     end)
     
+    -- 3. Gọi Triggered / Activated nếu có
     pcall(function()
-        prompt.HoldDuration = oldHold
-        prompt.MaxActivationDistance = oldDist
+        if prompt.Triggered and firesignal then
+            firesignal(prompt.Triggered, LocalPlayer)
+        end
     end)
+    
     return ok
 end
 
@@ -192,6 +206,7 @@ local Config = {
     StealInterval = 3.5,
     AvoidLockdown = true,
     AutoReturnBase = true,
+    AutoBrakeOnSteal = true, -- Tự động phanh đứng yên khi cướp quái để không bị trượt ra ngoài
     
     -- 2. Auto Conveyor
     AutoBuyConveyor = false,
@@ -323,48 +338,60 @@ local function scanMonstersToSteal()
     local myPlot, _ = getMyBase()
     local targets = {}
     
-    -- Quét toàn bộ quái vật trong các căn cứ khác
-    for _, obj in ipairs(Workspace:GetDescendants()) do
-        if obj:IsA("Model") or obj:IsA("BasePart") then
-            local name = stripVietnameseAccents(obj.Name)
-            local isMonster = name:find("monster") or name:find("quai vat") or obj:GetAttribute("Monster") or obj:GetAttribute("Value") or obj:GetAttribute("Rarity")
-            
-            -- Không lấy quái vật trong căn cứ của mình
-            local inMyPlot = myPlot and obj:IsDescendantOf(myPlot)
-            
-            if isMonster and not inMyPlot then
-                -- Kiểm tra căn cứ chứa quái này có bị Lockdown không
-                local hostPlot = nil
-                for _, folder in ipairs(Workspace:GetChildren()) do
-                    if folder.Name:lower():find("base") or folder.Name:lower():find("plot") then
-                        if obj:IsDescendantOf(folder) then
-                            for _, p in ipairs(folder:GetChildren()) do
-                                if obj:IsDescendantOf(p) and p ~= myPlot then
-                                    hostPlot = p
-                                    break
+    for _, prompt in ipairs(Workspace:GetDescendants()) do
+        if prompt:IsA("ProximityPrompt") and prompt.Enabled then
+            -- Không lấy prompt trong căn cứ của mình
+            local inMyPlot = myPlot and prompt:IsDescendantOf(myPlot)
+            if not inMyPlot then
+                local act = stripVietnameseAccents(prompt.ActionText)
+                local objText = stripVietnameseAccents(prompt.ObjectText)
+                local parent = prompt.Parent
+                local pName = parent and stripVietnameseAccents(parent.Name) or ""
+                
+                -- Nhận diện prompt cướp quái vật (hỗ trợ mọi tên quái vật như Celestial Emperor, Dragon, v.v.)
+                local isStealPrompt = act:find("steal") or act:find("cap") or act:find("cuop") or act:find("take") or act:find("grab") or act:find("lay") or act:find("be")
+                                   or objText:find("steal") or objText:find("monster") or objText:find("quai")
+                                   or pName:find("monster") or pName:find("quai") or pName:find("pedestal") or pName:find("stand")
+                                   or (parent and (parent:GetAttribute("Monster") or parent:GetAttribute("Value") or parent:GetAttribute("Income")))
+                
+                -- Bỏ qua nút mua băng chuyền hoặc nút thu tiền
+                if act:find("buy") or act:find("mua") or act:find("collect") or act:find("thu") then
+                    isStealPrompt = false
+                end
+                
+                if isStealPrompt then
+                    -- Kiểm tra xem căn cứ chứa prompt này có bị Lockdown không
+                    local hostPlot = nil
+                    for _, folder in ipairs(Workspace:GetChildren()) do
+                        local fName = folder.Name:lower()
+                        if fName:find("base") or fName:find("plot") or fName:find("tycoon") then
+                            if prompt:IsDescendantOf(folder) then
+                                for _, p in ipairs(folder:GetChildren()) do
+                                    if prompt:IsDescendantOf(p) and p ~= myPlot then
+                                        hostPlot = p
+                                        break
+                                    end
                                 end
                             end
                         end
                     end
-                end
-                
-                local locked = Config.AvoidLockdown and isPlotLocked(hostPlot)
-                if not locked then
-                    -- Tìm ProximityPrompt ăn cắp
-                    local prompt = obj:FindFirstChildWhichIsA("ProximityPrompt", true)
-                    if prompt and prompt.Enabled then
-                        local act = stripVietnameseAccents(prompt.ActionText)
-                        local objText = stripVietnameseAccents(prompt.ObjectText)
-                        if act:find("steal") or act:find("cap") or act:find("take") or act:find("lay") or act:find("grab") or objText:find("steal") or act == "" then
-                            local value = tonumber(obj:GetAttribute("Value") or obj:GetAttribute("Income") or 1)
-                            table.insert(targets, {
-                                Instance = obj,
-                                Prompt = prompt,
-                                CFrame = obj:GetPivot(),
-                                Value = value,
-                                Name = obj.Name
-                            })
-                        end
+                    
+                    local locked = Config.AvoidLockdown and isPlotLocked(hostPlot)
+                    if not locked and parent then
+                        local modelOrPart = parent:IsA("BasePart") and parent or parent:FindFirstAncestorWhichIsA("Model") or parent
+                        local cf = modelOrPart:GetPivot()
+                        local value = tonumber(parent:GetAttribute("Value") or parent:GetAttribute("Income") or 1)
+                        local holdTime = prompt.HoldDuration or 1.2
+                        if holdTime < 0.8 then holdTime = 0.8 end
+                        
+                        table.insert(targets, {
+                            Instance = modelOrPart,
+                            Prompt = prompt,
+                            CFrame = cf,
+                            Value = value,
+                            Name = parent.Name,
+                            HoldDuration = holdTime
+                        })
                     end
                 end
             end
@@ -395,22 +422,39 @@ task.spawn(function()
                     
                     if hrp and hum and hum.Health > 0 then
                         isStealing = true
+                        isStealingAction = true
                         local _, baseCF = getMyBase()
-                        local originalCF = hrp.CFrame
                         
-                        Stats.CurrentStatus = string.format("🥷 Đang đột nhập cướp [%s]...", target.Name)
+                        Stats.CurrentStatus = string.format("🥷 Đang tiếp cận [%s]...", target.Name)
                         
-                        -- Dịch chuyển tiếp cận quái vật
-                        hrp.CFrame = target.CFrame + Vector3.new(0, 2.5, 0)
-                        task.wait(0.25)
+                        -- 1. Triệt tiêu toàn bộ vận tốc để nhân vật không bị trượt quán tính
+                        hrp.AssemblyLinearVelocity = Vector3.zero
+                        hrp.CFrame = target.CFrame + Vector3.new(0, 1.5, 0)
+                        task.wait(0.2)
                         
-                        -- Kích hoạt Prompt bế quái vật
-                        firePrompt(target.Prompt)
-                        task.wait(0.4)
+                        -- 2. Đọc thời gian giữ thực tế của game (đảm bảo server xác nhận)
+                        local holdTime = target.HoldDuration or 1.2
+                        Stats.CurrentStatus = string.format("🥷 Đang ghim đứng yên cướp [%s] (Giữ %.1fs)...", target.Name, holdTime)
                         
-                        -- Tẩu thoát về căn cứ của mình
+                        -- 3. Khóa vị trí trong suốt thời gian giữ nút để không bị văng ra xa
+                        local anchorConn
+                        anchorConn = RunService.Heartbeat:Connect(function()
+                            if isStealingAction and hrp and target.Prompt and target.Prompt.Parent then
+                                hrp.CFrame = target.CFrame + Vector3.new(0, 1.5, 0)
+                                hrp.AssemblyLinearVelocity = Vector3.zero
+                            end
+                        end)
+                        
+                        -- 4. Kích hoạt giữ Prompt đầy đủ thời gian
+                        firePrompt(target.Prompt, holdTime)
+                        task.wait(holdTime + 0.3)
+                        
+                        if anchorConn then anchorConn:Disconnect() end
+                        isStealingAction = false
+                        
+                        -- 5. Đã bế quái vật! Lập tức kích hoạt Super Speed và tẩu thoát về căn cứ
                         if Config.AutoReturnBase and baseCF then
-                            Stats.CurrentStatus = "🏃 Đang mang quái vật tẩu thoát về căn cứ an toàn..."
+                            Stats.CurrentStatus = "🏃 Đã cướp được quái! Đang phóng về căn cứ an toàn..."
                             hrp.CFrame = baseCF + Vector3.new(0, 3, 0)
                             task.wait(0.5)
                         end
@@ -676,8 +720,46 @@ LocalPlayer.CharacterAdded:Connect(function(char)
     end
 end)
 
+if ProximityPromptService then
+    pcall(function()
+        ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt, player)
+            if player == LocalPlayer and Config.AutoBrakeOnSteal then
+                local act = stripVietnameseAccents(prompt.ActionText)
+                local obj = stripVietnameseAccents(prompt.ObjectText)
+                if act:find("steal") or act:find("cap") or act:find("cuop") or act:find("take") or act:find("grab") or obj:find("monster") or obj:find("steal") or act == "" then
+                    isHoldingPrompt = true
+                    local char = LocalPlayer.Character
+                    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                    local hum = char and char:FindFirstChildOfClass("Humanoid")
+                    if hum then hum.WalkSpeed = 16 end
+                    if hrp then hrp.AssemblyLinearVelocity = Vector3.zero end
+                    Stats.CurrentStatus = "🛑 Đang giữ nút: Tự động hãm phanh đứng yên để cướp quái vật..."
+                end
+            end
+        end)
+        
+        ProximityPromptService.PromptButtonHoldEnded:Connect(function(prompt, player)
+            if player == LocalPlayer then
+                isHoldingPrompt = false
+                if Config.SpeedBoost then
+                    Stats.CurrentStatus = "⚡ Cướp xong! Kích hoạt lại Super Speed để tẩu thoát!"
+                end
+            end
+        end)
+        
+        ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
+            if player == LocalPlayer then
+                isHoldingPrompt = false
+                if Config.SpeedBoost then
+                    Stats.CurrentStatus = "⚡ Cướp thành công! Đang phóng đi tẩu thoát!"
+                end
+            end
+        end)
+    end)
+end
+
 RunService.Heartbeat:Connect(function(dt)
-    if Config.SpeedBoost then
+    if Config.SpeedBoost and not isHoldingPrompt and not isStealingAction then
         pcall(function()
             local char = LocalPlayer.Character
             local hum = char and char:FindFirstChildOfClass("Humanoid")
@@ -696,6 +778,17 @@ RunService.Heartbeat:Connect(function(dt)
                     local factor = (preset.CFrameMult or 1.0) * (dt * 60)
                     hrp.CFrame = hrp.CFrame + (moveDir * factor)
                 end
+            end
+        end)
+    elseif (isHoldingPrompt or isStealingAction) then
+        pcall(function()
+            local char = LocalPlayer.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            if hum and hrp then
+                -- Hãm phanh triệt để khi đang giữ nút cướp
+                hum.WalkSpeed = 16
+                hrp.AssemblyLinearVelocity = Vector3.zero
             end
         end)
     end
@@ -954,7 +1047,7 @@ ScrollList.Size = UDim2.new(1, -24, 1, -92)
 ScrollList.Position = UDim2.new(0, 12, 0, 86)
 ScrollList.BackgroundTransparency = 1
 ScrollList.BorderSizePixel = 0
-ScrollList.CanvasSize = UDim2.new(0, 0, 0, 680)
+ScrollList.CanvasSize = UDim2.new(0, 0, 0, 750)
 ScrollList.ScrollBarThickness = 4
 ScrollList.ScrollBarImageColor3 = Color3.fromRGB(16, 185, 129)
 ScrollList.Parent = MainFrame
@@ -1070,6 +1163,10 @@ end)
 
 createToggle(ScrollList, "🛡️ Né Căn Cứ Đang Bật Khóa (Avoid Lockdown)", "Bỏ qua các căn cứ đối thủ đang bật khiên/Lockdown an toàn", Config.AvoidLockdown, function(val)
     Config.AvoidLockdown = val
+end)
+
+createToggle(ScrollList, "🛑 Phanh Tự Động Khi Cướp (Auto-Brake)", "Tự động đứng yên khi giữ nút cướp để không bị trượt văng ra ngoài", Config.AutoBrakeOnSteal, function(val)
+    Config.AutoBrakeOnSteal = val
 end)
 
 -- ── 2. TỰ ĐỘNG MUA BĂNG CHUYỀN ──
