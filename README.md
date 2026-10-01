@@ -1,6 +1,8 @@
-# 🦖 STEAL A MONSTER HUB - ĂN CẮP MỘT CON QUÁI VẬT! V1.0
+# 🦖 STEAL A MONSTER HUB - BẢN TINH GỌN (LITE & SPEED EDITION) V2.0
 
-Script hỗ trợ tự động hóa toàn diện cho tựa game **[🦖] Ăn cắp một con quái vật! (Steal a Monster!)** trên Roblox, phát triển bởi nhóm **Oops Again**.
+Script tối ưu hóa chuyên biệt cho tựa game **[🦖] Ăn cắp một con quái vật! (Steal a Monster!)** trên Roblox (nhóm phát triển **Oops Again**).
+
+Được tinh gọn 100% theo yêu cầu: Loại bỏ hoàn toàn các tính năng dư thừa, chỉ tập trung tối đa vào **Tốc Độ Thần Tốc**, **Cướp Quái 1 Chạm Tức Thì**, **Chống Phát Hiện Tốc Độ** và **Chống Treo Máy 24/7**.
 
 Tương thích mượt mà 100% cho **Delta Executor (Android & PC)**, Codex, Wave, Hydrogen, Fluxus và Solara.
 
@@ -22,34 +24,22 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/khahuynh963/steal_a_m
 
 ---
 
-## 🎮 Cơ Chế Cốt Lõi Của Game "Ăn Cắp Một Con Quái Vật!"
+## 🌟 4 Tính Năng Cốt Lõi Duy Nhất
 
-1. **Băng Chuyền Quái Vật (Conveyor Belt)**:
-   * Các loại quái vật từ cấp thấp đến thần thoại liên tục chạy trên băng chuyền trung tâm. Người chơi đứng cạnh để mua quái vật đưa về căn cứ.
-   * Quái vật cấp cao (như *Celestial Emperor*) có thể sinh tới **$61,000,000,000/s**!
-2. **Căn Cứ & Sinh Tiền (Base Income)**:
-   * Quái vật nuôi trong căn cứ tự động tạo tiền vàng (Coins) theo thời gian thực.
-3. **Cơ Chế Ăn Cắp Đối Thủ (Stealing Mechanics - Điểm Nhấn PvP)**:
-   * Người chơi có thể đột nhập vào căn cứ đối thủ, bế quái vật lên đầu và chạy về căn cứ của mình để biến nó thành của riêng.
-   * Nếu bị đối thủ tấn công hoặc dính bẫy khi đang mang quái vật, bạn sẽ bị rơi quái vật.
-4. **Hệ Thống Phòng Thủ & Khóa Căn Cứ (Base Defense & Lockdown)**:
-   * **Lockdown**: Khiên chắn tạm thời khóa hoàn toàn căn cứ, ngăn chặn mọi kẻ trộm đột nhập.
-   * **Rebirth (Tái sinh)**: Reset tiền và quái vật để nhận vĩnh viễn thời lượng bật Lockdown lâu hơn và tăng tốc độ di chuyển.
+| Tính Năng | Chi Tiết Hoạt Động |
+|---|---|
+| 🥷 **1 Nhấn Lấy Quái Vật (Instant 1-Click Steal)** | • **Xóa thời gian giữ (HoldDuration = 0s)**: Không còn phải đứng yên nhấn giữ 1.0s – 1.5s như bình thường.<br>• **Mở rộng tầm với (Range 35 studs)**: Tầm tương tác xa hơn, không yêu cầu góc nhìn thẳng (lấy xuyên góc kẹt).<br>• **Chạm 1 lần là bế ngay**: Chỉ cần lướt qua hoặc chạm nhẹ 1 cái vào nút là bế ngay quái vật lên đầu lập tức! |
+| ⚡ **Tăng Tốc Độ Chạy (Super Speed Boost)** | • **Hệ thống 6 cấp độ tốc độ tùy chọn**: `Speed 40 (Nhanh)` ➔ `Speed 70 (Siêu Tốc)` ➔ `Speed 110 (Cuồng Phong)` ➔ `Speed 160 (Tia Chớp)` ➔ `Speed 220 (Thần Tốc)` ➔ `Speed 300 (Max Flash God)`.<br>• **Gia tốc CFrame mượt mà**: Lướt êm ái trên mọi địa hình, bỏ qua cơ chế game làm chậm khi đang bế quái vật nặng.<br>• **Tự động khôi phục khi hồi sinh**: Không bao giờ bị mất tốc độ khi chết hoặc respawn. |
+| 🛡️ **Chống Phát Hiện Tốc Độ (Anti-Speed Detect Spoofer)** | • **Metatable Hooking (__index & __newindex)**: Khi bất kỳ script kiểm tra hay anti-cheat nào của game đọc `Humanoid.WalkSpeed`, hệ thống luôn trả về `16` (giá trị bình thường an toàn).<br>• Chống tình trạng game tự động hạ tốc độ hoặc kick khỏi phòng chơi khi di chuyển quá nhanh. |
+| 💤 **Chống Treo Máy AFK 24/7 (Anti-AFK)** | • Tự động chặn sự kiện ngắt kết nối sau 20 phút không hoạt động của Roblox, giúp bạn an tâm treo máy cả ngày. |
 
 ---
 
-## 🌟 Tổng Hợp Các Tính Năng Đã Tích Hợp
+## 🎨 Giao Diện Tinh Gọn & Thân Thiện Cho Điện Thoại
 
-| Nhóm Tính Năng | Mô Tả Chi Tiết |
-|---|---|
-| 🥷 **Auto Steal Monsters** | • Tự động quét toàn bộ quái vật trong các căn cứ đối thủ trên server (bao gồm cả các quái vật khủng như *Celestial Emperor*, *Dragon*, v.v.).<br>• Ưu tiên chọn quái vật giá trị cao nhất.<br>• **Ghim Đứng Yên Giữ Nút**: Tự động ghim cố định vị trí trong thời gian giữ nút (Hold Duration) chuẩn server để không bị văng ra xa.<br>• **Tẩu Thoát Tức Thì**: Sau khi quái vật đã bế lên đầu, tự kích hoạt Super Speed phóng thẳng về căn cứ an toàn.<br>• **Avoid Lockdown**: Tự động né các căn cứ đang bật khiên bảo vệ. |
-| 🛒 **Auto Buy Conveyor** | • Tự động quét và mua quái vật trên băng chuyền trung tâm ngay khi xuất hiện.<br>• Hỗ trợ bộ lọc độ hiếm tối thiểu (`Rare+`, `Epic+`, `Legendary+`, `Celestial+`). |
-| 💰 **Auto Collect Coins** | • Tự động thu thập toàn bộ tiền vàng do quái vật trong căn cứ sinh ra mà không cần chạy bộ giẫm ô. |
-| 🚨 **Auto Base Defense** | • Tự động phát hiện khi có kẻ lạ bước vào bán kính căn cứ của bạn.<br>• Tự động kích hoạt **Lockdown** ngay lập tức để bảo vệ đàn quái vật khỏi bị cướp. |
-| 🔄 **Auto Rebirth** | • Tự động kích hoạt Tái sinh khi đạt đủ số tiền để tăng thời gian Lockdown vĩnh viễn. |
-| ⚡ **Tiện Ích Tẩu Thoát & PvP** | • **Super Speed Boost**: Hệ thống 6 cấp độ tốc độ (`Speed 40` ➔ `Speed 75` ➔ `Speed 120` ➔ `Speed 180` ➔ `Speed 250` ➔ `Speed 350 Max Flash God`) giúp tẩu thoát thần tốc khi bế quái vật.<br>• **Gia Tốc CFrame**: Bỏ qua cơ chế game làm chậm khi mang vác quái vật, lướt siêu êm trên mọi địa hình.<br>• **Infinite Jump**: Nhảy liên tục trên không để vượt tường rào căn cứ.<br>• **Noclip**: Đi xuyên tường rút ngắn quãng đường tẩu thoát. |
-| 🛡️ **Anti-AFK & FPS Booster** | • **Anti-AFK 24/7**: Chống bị văng game sau 20 phút khi treo máy cày tiền.<br>• **FPS Booster 60 FPS**: Tối ưu đồ họa siêu mượt cho điện thoại Android chạy Delta. |
-| 🦖 **Giao Diện Di Động** | • Nút tròn thu nhỏ hình chú khủng long 🦖 kéo thả tự do, ẩn/hiện menu chỉ với 1 chạm. |
+* **Nút Tròn Thu Nhỏ (Floating Button 🦖)**: Dễ dàng kéo thả bất kỳ vị trí nào trên màn hình cảm ứng, chạm 1 cái để mở/đóng bảng điều khiển.
+* **Menu 4 Tùy Chọn Tinh Gọn**: Giao diện tối giản, nhẹ nhàng, không chiếm tài nguyên máy.
+* **Thanh Trạng Thái (Live Status Banner)**: Báo cáo số lần cướp quái vật và trạng thái tốc độ theo thời gian thực.
 
 ---
 
