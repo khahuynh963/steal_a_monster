@@ -47,7 +47,7 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/khahuynh963/steal_a_m
 | 💰 **Auto Collect Coins** | • Tự động thu thập toàn bộ tiền vàng do quái vật trong căn cứ sinh ra mà không cần chạy bộ giẫm ô. |
 | 🚨 **Auto Base Defense** | • Tự động phát hiện khi có kẻ lạ bước vào bán kính căn cứ của bạn.<br>• Tự động kích hoạt **Lockdown** ngay lập tức để bảo vệ đàn quái vật khỏi bị cướp. |
 | 🔄 **Auto Rebirth** | • Tự động kích hoạt Tái sinh khi đạt đủ số tiền để tăng thời gian Lockdown vĩnh viễn. |
-| ⚡ **Tiện Ích Tẩu Thoát & PvP** | • **Speed Boost (WalkSpeed 35)**: Tăng tốc độ chạy để trốn thoát nhanh khi đang bế quái vật.<br>• **Infinite Jump**: Nhảy liên tục trên không để vượt tường rào căn cứ.<br>• **Noclip**: Đi xuyên tường rút ngắn quãng đường tẩu thoát. |
+| ⚡ **Tiện Ích Tẩu Thoát & PvP** | • **Super Speed Boost**: Hệ thống 6 cấp độ tốc độ (`Speed 40` ➔ `Speed 75` ➔ `Speed 120` ➔ `Speed 180` ➔ `Speed 250` ➔ `Speed 350 Max Flash God`) giúp tẩu thoát thần tốc khi bế quái vật.<br>• **Gia Tốc CFrame**: Bỏ qua cơ chế game làm chậm khi mang vác quái vật, lướt siêu êm trên mọi địa hình.<br>• **Infinite Jump**: Nhảy liên tục trên không để vượt tường rào căn cứ.<br>• **Noclip**: Đi xuyên tường rút ngắn quãng đường tẩu thoát. |
 | 🛡️ **Anti-AFK & FPS Booster** | • **Anti-AFK 24/7**: Chống bị văng game sau 20 phút khi treo máy cày tiền.<br>• **FPS Booster 60 FPS**: Tối ưu đồ họa siêu mượt cho điện thoại Android chạy Delta. |
 | 🦖 **Giao Diện Di Động** | • Nút tròn thu nhỏ hình chú khủng long 🦖 kéo thả tự do, ẩn/hiện menu chỉ với 1 chạm. |
 

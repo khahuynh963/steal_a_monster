@@ -209,9 +209,18 @@ local Config = {
     -- 5. Auto Rebirth
     AutoRebirth = false,
     
-    -- 6. Utilities
+    -- 6. Utilities & Super Speed
     SpeedBoost = false,
-    SpeedValue = 35,
+    SpeedLevelIndex = 2,
+    SpeedPresets = {
+        { Name = "⚡ Nhanh (Speed 40)", Value = 40, CFrameMult = 0.5 },
+        { Name = "🚀 Siêu Tốc (Speed 75)", Value = 75, CFrameMult = 1.0 },
+        { Name = "🌪️ Cuồng Phong (Speed 120)", Value = 120, CFrameMult = 1.8 },
+        { Name = "⚡ Tia Chớp (Speed 180)", Value = 180, CFrameMult = 2.6 },
+        { Name = "👑 Thần Tốc (Speed 250)", Value = 250, CFrameMult = 3.6 },
+        { Name = "🔥 Max Flash God (Speed 350)", Value = 350, CFrameMult = 5.0 }
+    },
+    CFrameSpeed = true,
     InfiniteJump = false,
     Noclip = false,
     AntiAFK = true,
@@ -642,16 +651,53 @@ task.spawn(function()
     end)
 end)
 
--- 2. Tăng tốc chạy (Speed Boost)
-task.spawn(function()
-    while true do
-        task.wait(0.5)
-        if Config.SpeedBoost then
-            pcall(function()
-                local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-                if hum then hum.WalkSpeed = Config.SpeedValue or 35 end
-            end)
+-- 2. Tăng tốc chạy siêu cấp (Super Speed Boost & CFrame Acceleration)
+local function applyCurrentSpeed()
+    pcall(function()
+        local char = LocalPlayer.Character
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        if hum and hum.Health > 0 then
+            if Config.SpeedBoost then
+                local preset = Config.SpeedPresets[Config.SpeedLevelIndex] or Config.SpeedPresets[2]
+                hum.WalkSpeed = preset.Value
+            else
+                hum.WalkSpeed = 16
+            end
         end
+    end)
+end
+
+LocalPlayer.CharacterAdded:Connect(function(char)
+    task.wait(0.4)
+    local hum = char:WaitForChild("Humanoid", 5)
+    if hum and Config.SpeedBoost then
+        local preset = Config.SpeedPresets[Config.SpeedLevelIndex] or Config.SpeedPresets[2]
+        hum.WalkSpeed = preset.Value
+    end
+end)
+
+RunService.Heartbeat:Connect(function(dt)
+    if Config.SpeedBoost then
+        pcall(function()
+            local char = LocalPlayer.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            if hum and hrp and hum.Health > 0 then
+                local preset = Config.SpeedPresets[Config.SpeedLevelIndex] or Config.SpeedPresets[2]
+                
+                -- Khóa cố định WalkSpeed không cho game hạ tốc độ
+                if hum.WalkSpeed ~= preset.Value then
+                    hum.WalkSpeed = preset.Value
+                end
+                
+                -- Gia tốc CFrame khi nhân vật đang di chuyển (Bỏ qua giới hạn game khi bế quái vật)
+                if Config.CFrameSpeed and hum.MoveDirection.Magnitude > 0 then
+                    local moveDir = hum.MoveDirection
+                    local factor = (preset.CFrameMult or 1.0) * (dt * 60)
+                    hrp.CFrame = hrp.CFrame + (moveDir * factor)
+                end
+            end
+        end)
     end
 end)
 
@@ -908,7 +954,7 @@ ScrollList.Size = UDim2.new(1, -24, 1, -92)
 ScrollList.Position = UDim2.new(0, 12, 0, 86)
 ScrollList.BackgroundTransparency = 1
 ScrollList.BorderSizePixel = 0
-ScrollList.CanvasSize = UDim2.new(0, 0, 0, 580)
+ScrollList.CanvasSize = UDim2.new(0, 0, 0, 680)
 ScrollList.ScrollBarThickness = 4
 ScrollList.ScrollBarImageColor3 = Color3.fromRGB(16, 185, 129)
 ScrollList.Parent = MainFrame
@@ -1047,14 +1093,72 @@ createToggle(ScrollList, "🔄 Tự Động Tái Sinh (Auto Rebirth)", "Tự đ�
 end)
 
 -- ── 6. TIỆN ÍCH TẨU THOÁT & TỐI ƯU ──
-createToggle(ScrollList, "🏃 Tăng Tốc Độ Chạy (Speed Boost 35)", "Tăng tốc chạy giúp tẩu thoát nhanh khi bế quái vật", Config.SpeedBoost, function(val)
+createToggle(ScrollList, "🏃 Tăng Tốc Độ Chạy (Super Speed Boost)", "Bật chế độ di chuyển siêu tốc độ giúp bế quái tẩu thoát", Config.SpeedBoost, function(val)
     Config.SpeedBoost = val
-    if not val then
-        pcall(function()
-            local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-            if hum then hum.WalkSpeed = 16 end
-        end)
+    applyCurrentSpeed()
+    if val then
+        local preset = Config.SpeedPresets[Config.SpeedLevelIndex] or Config.SpeedPresets[2]
+        Stats.CurrentStatus = "⚡ Đã bật Tăng Tốc: " .. preset.Name
+    else
+        Stats.CurrentStatus = "Đã tắt Tăng Tốc."
     end
+end)
+
+-- Button chuyển đổi mức tốc độ
+do
+    local speedFrame = Instance.new("Frame")
+    speedFrame.Size = UDim2.new(1, 0, 0, 42)
+    speedFrame.BackgroundColor3 = Color3.fromRGB(24, 34, 53)
+    speedFrame.BorderSizePixel = 0
+    speedFrame.Parent = ScrollList
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = speedFrame
+
+    local titleLbl = Instance.new("TextLabel")
+    titleLbl.Size = UDim2.new(0, 140, 1, 0)
+    titleLbl.Position = UDim2.new(0, 10, 0, 0)
+    titleLbl.BackgroundTransparency = 1
+    titleLbl.Text = "Chọn Mức Tốc Độ:"
+    titleLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLbl.TextSize = 12
+    titleLbl.Font = Enum.Font.GothamBold
+    titleLbl.TextXAlignment = Enum.TextXAlignment.Left
+    titleLbl.Parent = speedFrame
+
+    local currentPreset = Config.SpeedPresets[Config.SpeedLevelIndex] or Config.SpeedPresets[2]
+    local speedBtn = Instance.new("TextButton")
+    speedBtn.Size = UDim2.new(1, -155, 0, 28)
+    speedBtn.Position = UDim2.new(0, 145, 0, 7)
+    speedBtn.BackgroundColor3 = Color3.fromRGB(245, 158, 11)
+    speedBtn.Text = currentPreset.Name
+    speedBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    speedBtn.TextSize = 11
+    speedBtn.Font = Enum.Font.GothamBold
+    speedBtn.Parent = speedFrame
+
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0, 6)
+    btnCorner.Parent = speedBtn
+
+    speedBtn.MouseButton1Click:Connect(function()
+        Config.SpeedLevelIndex = Config.SpeedLevelIndex + 1
+        if Config.SpeedLevelIndex > #Config.SpeedPresets then
+            Config.SpeedLevelIndex = 1
+        end
+        local newPreset = Config.SpeedPresets[Config.SpeedLevelIndex]
+        speedBtn.Text = newPreset.Name
+        if Config.SpeedBoost then
+            applyCurrentSpeed()
+            Stats.CurrentStatus = "⚡ Đã chuyển tốc độ: " .. newPreset.Name
+        end
+    end)
+end
+
+-- Toggle CFrame Speed Acceleration
+createToggle(ScrollList, "🚀 Gia Tốc CFrame (Vượt Giới Hạn Game)", "Đẩy vận tốc CFrame trực tiếp khi bế quái vật, lướt siêu mượt", Config.CFrameSpeed, function(val)
+    Config.CFrameSpeed = val
 end)
 
 createToggle(ScrollList, "🦘 Nhảy Vô Hạn (Infinite Jump)", "Nhảy liên tục trên không trung để vượt tường và chướng ngại vật", Config.InfiniteJump, function(val)
