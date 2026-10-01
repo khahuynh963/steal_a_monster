@@ -1,6 +1,6 @@
 --[[
     ===================================================================
-    🦖 STEAL A MONSTER HUB - BẢN TINH GỌN (LITE & SPEED EDITION) V2.1
+    🦖 STEAL A MONSTER HUB - BẢN TINH GỌN (LITE & SPEED EDITION) V2.2
     Game: [🦖] Ăn cắp một con quái vật! (Steal a Monster!)
     Developer: Oops Again
     Repository: https://github.com/khahuynh963/steal_a_monster.git
@@ -12,8 +12,10 @@
        - Không còn lỗi bị hủy hold! Script tự động giữ nút thay người chơi đúng thời lượng server yêu cầu (1.2s).
        - Tự động ghim đứng yên vị trí khi cướp để không bị trượt ra ngoài.
        - Tích hợp thêm Nút Nổi "⚡ CƯỚP NHANH" trên màn hình để chạm 1 phát là tự bế quái gần nhất!
-    2. ⚡ TĂNG TỐC ĐỘ CHẠY (SUPER SPEED BOOST):
-       - 6 Mức tốc độ từ 40 đến 300, kết hợp gia tốc CFrame siêu êm.
+    2. ⚡ TĂNG TỐC ĐỘ CHẠY SIÊU MƯỢT (SMOOTH PHYSICS SPEED BOOST - CHỐNG GIẬT LÙI 100%):
+       - Động cơ đẩy AssemblyLinearVelocity chuẩn vật lý Roblox, loại bỏ hoàn toàn CFrame offset thô.
+       - Triệt tiêu 100% hiện tượng giật lùi (Rubberbanding / Rollback) khi chạy tốc độ cao.
+       - Tự động khóa chống ngã/ragdoll khi va chạm, hãm phanh mượt mà khi nhả phím di chuyển.
     3. 🛡️ CHỐNG PHÁT HIỆN TỐC ĐỘ (SAFE ANTI-SPEED DETECT SPOOFER):
        - Ngụy trang WalkSpeed = 16 an toàn, không can thiệp __newindex tránh lỗi kẹt trạng thái bế quái.
     4. 💤 CHỐNG TREO MÁY AFK 24/7 (ANTI-AFK):
@@ -107,14 +109,13 @@ local Config = {
     SpeedBoost = false,
     SpeedLevelIndex = 2,
     SpeedPresets = {
-        { Name = "⚡ Nhanh (Speed 40)", Value = 40, CFrameMult = 0.5 },
-        { Name = "🚀 Siêu Tốc (Speed 70)", Value = 70, CFrameMult = 1.0 },
-        { Name = "🌪️ Cuồng Phong (Speed 110)", Value = 110, CFrameMult = 1.6 },
-        { Name = "⚡ Tia Chớp (Speed 160)", Value = 160, CFrameMult = 2.4 },
-        { Name = "👑 Thần Tốc (Speed 220)", Value = 220, CFrameMult = 3.2 },
-        { Name = "🔥 Max Flash God (Speed 300)", Value = 300, CFrameMult = 4.5 }
+        { Name = "⚡ Êm Ái (Speed 35)", Value = 35 },
+        { Name = "🚀 Siêu Tốc (Speed 60)", Value = 60 },
+        { Name = "🌪️ Cuồng Phong (Speed 90)", Value = 90 },
+        { Name = "⚡ Tia Chớp (Speed 125)", Value = 125 },
+        { Name = "👑 Thần Tốc (Speed 165)", Value = 165 },
+        { Name = "🔥 Max Sonic (Speed 220)", Value = 220 }
     },
-    CFrameSpeed = true,
     
     -- 2. Một nhấn lấy quái vật
     InstantSteal = true,
@@ -162,34 +163,52 @@ pcall(function()
 end)
 
 -- ===================================================================
--- ⚡ MÔ-ĐUN 2: TĂNG TỐC ĐỘ CHẠY SIÊU MƯỢT (SUPER SPEED BOOST)
+-- ⚡ MÔ-ĐUN 2: TĂNG TỐC ĐỘ CHẠY SIÊU MƯỢT (SMOOTH PHYSICS SPEED BOOST)
 -- ===================================================================
+-- Chống giật lùi (Anti-Rubberband): Sử dụng AssemblyLinearVelocity đồng bộ chuẩn
+-- vật lý Roblox replication. Giữ nguyên trục Y để trọng lực, nhảy và rơi tự nhiên.
 local function applyCurrentSpeed()
     pcall(function()
         local char = LocalPlayer.Character
         local hum = char and char:FindFirstChildOfClass("Humanoid")
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
         if hum and hum.Health > 0 then
             if Config.SpeedBoost and not isHoldingMonster then
                 local preset = Config.SpeedPresets[Config.SpeedLevelIndex] or Config.SpeedPresets[2]
                 hum.WalkSpeed = preset.Value
             else
                 hum.WalkSpeed = 16
+                if hrp then
+                    hrp.AssemblyLinearVelocity = Vector3.new(0, hrp.AssemblyLinearVelocity.Y, 0)
+                end
             end
         end
     end)
 end
 
--- Tự động khôi phục tốc độ khi hồi sinh
-LocalPlayer.CharacterAdded:Connect(function(char)
-    task.wait(0.4)
-    local hum = char:WaitForChild("Humanoid", 5)
-    if hum and Config.SpeedBoost then
-        local preset = Config.SpeedPresets[Config.SpeedLevelIndex] or Config.SpeedPresets[2]
-        hum.WalkSpeed = preset.Value
-    end
-end)
+-- Thiết lập chống vấp ngã (Anti-Fall/Ragdoll) và khôi phục tốc độ cho nhân vật
+local function setupCharacter(char)
+    task.wait(0.3)
+    pcall(function()
+        local hum = char:WaitForChild("Humanoid", 5)
+        if hum then
+            -- Chống vấp té, ragdoll khi va chạm góc cạnh ở tốc độ cao
+            hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+            hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+            if Config.SpeedBoost and not isHoldingMonster then
+                local preset = Config.SpeedPresets[Config.SpeedLevelIndex] or Config.SpeedPresets[2]
+                hum.WalkSpeed = preset.Value
+            end
+        end
+    end)
+end
 
--- Duy trì tốc độ và gia tốc mượt mà qua Heartbeat (Tự động hãm phanh khi đang cướp quái)
+LocalPlayer.CharacterAdded:Connect(setupCharacter)
+if LocalPlayer.Character then
+    setupCharacter(LocalPlayer.Character)
+end
+
+-- Duy trì tốc độ và gia tốc mượt mà qua Heartbeat (Chuẩn vật lý, KHÔNG CFrame offset, chống giật lùi 100%)
 RunService.Heartbeat:Connect(function(dt)
     if Config.SpeedBoost and not isHoldingMonster then
         pcall(function()
@@ -198,17 +217,34 @@ RunService.Heartbeat:Connect(function(dt)
             local hrp = char and char:FindFirstChild("HumanoidRootPart")
             if hum and hrp and hum.Health > 0 then
                 local preset = Config.SpeedPresets[Config.SpeedLevelIndex] or Config.SpeedPresets[2]
+                local targetSpeed = preset.Value or 60
                 
-                -- Khóa cố định WalkSpeed
-                if hum.WalkSpeed ~= preset.Value then
-                    hum.WalkSpeed = preset.Value
+                -- 1. Khóa cố định WalkSpeed của Humanoid
+                if hum.WalkSpeed ~= targetSpeed then
+                    hum.WalkSpeed = targetSpeed
                 end
                 
-                -- Gia tốc CFrame khi nhân vật đang di chuyển
-                if Config.CFrameSpeed and hum.MoveDirection.Magnitude > 0 then
-                    local moveDir = hum.MoveDirection
-                    local factor = (preset.CFrameMult or 1.0) * (dt * 60)
-                    hrp.CFrame = hrp.CFrame + (moveDir * factor)
+                -- 2. Gia tốc vật lý thuần túy (AssemblyLinearVelocity)
+                -- Khi di chuyển: đẩy vận tốc theo hướng joystick/bàn phím
+                if hum.MoveDirection.Magnitude > 0 then
+                    local moveDir = hum.MoveDirection.Unit
+                    local currentY = hrp.AssemblyLinearVelocity.Y
+                    hrp.AssemblyLinearVelocity = Vector3.new(
+                        moveDir.X * targetSpeed,
+                        currentY,
+                        moveDir.Z * targetSpeed
+                    )
+                else
+                    -- Khi nhả phím di chuyển: hãm phanh mượt mà trên trục ngang X-Z
+                    local currentVel = hrp.AssemblyLinearVelocity
+                    local horizSpeed = Vector3.new(currentVel.X, 0, currentVel.Z).Magnitude
+                    if horizSpeed > 1 then
+                        hrp.AssemblyLinearVelocity = Vector3.new(
+                            currentVel.X * 0.75,
+                            currentVel.Y,
+                            currentVel.Z * 0.75
+                        )
+                    end
                 end
             end
         end)
@@ -234,64 +270,72 @@ local function performStealHold(prompt)
     isHoldingMonster = true
     
     task.spawn(function()
-        local char = LocalPlayer.Character
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-        
-        -- 1. Triệt tiêu vận tốc ngay lập tức để không bị trượt quán tính
-        if hrp then hrp.AssemblyLinearVelocity = Vector3.zero end
-        
-        -- 2. Đọc thời gian giữ thực tế của prompt (thường 1.0s - 1.5s)
-        local holdTime = prompt.HoldDuration
-        if not holdTime or holdTime <= 0 then holdTime = 1.2 end
-        
-        Stats.CurrentStatus = string.format("🥷 Đang tự động giữ cướp... (%.1fs - Không cần giữ tay!)", holdTime)
-        
-        -- 3. Khóa vị trí nhân vật cạnh quái vật trong suốt thời gian giữ
-        local lockCF = hrp and hrp.CFrame
-        local anchorConn
-        if hrp and lockCF then
-            anchorConn = RunService.Heartbeat:Connect(function()
-                if isHoldingMonster and hrp then
-                    hrp.CFrame = lockCF
-                    hrp.AssemblyLinearVelocity = Vector3.zero
+        local anchorConn = nil
+        local success, err = pcall(function()
+            local char = LocalPlayer.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            
+            -- 1. Triệt tiêu vận tốc ngay lập tức để không bị trượt quán tính
+            if hrp then hrp.AssemblyLinearVelocity = Vector3.zero end
+            
+            -- 2. Đọc thời gian giữ thực tế của prompt (thường 1.0s - 1.5s)
+            local holdTime = prompt.HoldDuration
+            if not holdTime or holdTime <= 0 then holdTime = 1.2 end
+            
+            Stats.CurrentStatus = string.format("🥷 Đang tự động giữ cướp... (%.1fs - Không cần giữ tay!)", holdTime)
+            
+            -- 3. Khóa vị trí nhân vật cạnh quái vật trong suốt thời gian giữ
+            local lockCF = hrp and hrp.CFrame
+            if hrp and lockCF then
+                anchorConn = RunService.Heartbeat:Connect(function()
+                    if isHoldingMonster and hrp then
+                        hrp.CFrame = lockCF
+                        hrp.AssemblyLinearVelocity = Vector3.zero
+                    end
+                end)
+            end
+            
+            -- 4. Bắt đầu giữ nút trên client
+            pcall(function()
+                prompt:InputHoldBegin()
+            end)
+            
+            -- 5. Đợi đúng thời gian quy định để server xác nhận hợp lệ
+            task.wait(holdTime + 0.15)
+            
+            -- 6. Hoàn tất giữ nút
+            pcall(function()
+                prompt:InputHoldEnd()
+            end)
+            
+            -- Dự phòng gọi thêm fireproximityprompt nếu executor hỗ trợ
+            pcall(function()
+                if fireproximityprompt then
+                    fireproximityprompt(prompt, holdTime)
                 end
             end)
-        end
-        
-        -- 4. Bắt đầu giữ nút trên client
-        pcall(function()
-            prompt:InputHoldBegin()
+            
+            -- Kích hoạt tín hiệu Triggered nếu có
+            pcall(function()
+                if firesignal and prompt.Triggered then
+                    firesignal(prompt.Triggered, LocalPlayer)
+                end
+            end)
+            
+            Stats.StealsCount = Stats.StealsCount + 1
+            Stats.CurrentStatus = string.format("✅ Cướp thành công! (Lần %d) - Đang kích hoạt tốc độ tẩu thoát!", Stats.StealsCount)
         end)
         
-        -- 5. Đợi đúng thời gian quy định để server xác nhận hợp lệ
-        task.wait(holdTime + 0.15)
-        
-        -- 6. Hoàn tất giữ nút
+        -- Mở khóa nhân vật an toàn (luôn chạy kể cả khi có lỗi)
         pcall(function()
-            prompt:InputHoldEnd()
+            if anchorConn then anchorConn:Disconnect() end
         end)
-        
-        -- Dự phòng gọi thêm fireproximityprompt nếu executor hỗ trợ
-        pcall(function()
-            if fireproximityprompt then
-                fireproximityprompt(prompt, holdTime)
-            end
-        end)
-        
-        -- Kích hoạt tín hiệu Triggered nếu có
-        pcall(function()
-            if firesignal and prompt.Triggered then
-                firesignal(prompt.Triggered, LocalPlayer)
-            end
-        end)
-        
-        -- Mở khóa nhân vật
-        if anchorConn then anchorConn:Disconnect() end
         task.wait(0.2)
         isHoldingMonster = false
         
-        Stats.StealsCount = Stats.StealsCount + 1
-        Stats.CurrentStatus = string.format("✅ Cướp thành công! (Lần %d) - Đang kích hoạt tốc độ tẩu thoát!", Stats.StealsCount)
+        if not success then
+            warn("[Steal a Monster] Lỗi cướp quái:", err)
+        end
     end)
 end
 
@@ -796,13 +840,22 @@ createToggle(ScrollList, "🥷 1 Nhấn Lấy Quái Vật (Auto-Hold)", "Chạm 
 end)
 
 -- 3. BẬT / TẮT TĂNG TỐC ĐỘ CHẠY
-createToggle(ScrollList, "⚡ Tăng Tốc Độ Chạy (Speed Boost)", "Bật tốc độ di chuyển siêu tốc độ giúp lướt nhanh quanh map", Config.SpeedBoost, function(val)
+createToggle(ScrollList, "⚡ Tăng Tốc Độ Chạy (Speed Boost)", "Bật tốc độ siêu mượt, chuẩn vật lý chống giật lùi 100%", Config.SpeedBoost, function(val)
     Config.SpeedBoost = val
     applyCurrentSpeed()
     if val then
         local preset = Config.SpeedPresets[Config.SpeedLevelIndex] or Config.SpeedPresets[2]
         Stats.CurrentStatus = "⚡ Đã bật Tăng Tốc: " .. preset.Name
     else
+        pcall(function()
+            local char = LocalPlayer.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            if hum then hum.WalkSpeed = 16 end
+            if hrp then
+                hrp.AssemblyLinearVelocity = Vector3.new(0, hrp.AssemblyLinearVelocity.Y, 0)
+            end
+        end)
         Stats.CurrentStatus = "Đã tắt Tăng Tốc."
     end
 end)
