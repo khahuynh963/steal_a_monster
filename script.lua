@@ -1,17 +1,23 @@
 --[[
     ===================================================================
-    🦖 STEAL A MONSTER HUB - BẢN TINH GỌN (LITE & SPEED EDITION) V2.0
+    🦖 STEAL A MONSTER HUB - BẢN TINH GỌN (LITE & SPEED EDITION) V2.1
     Game: [🦖] Ăn cắp một con quái vật! (Steal a Monster!)
     Developer: Oops Again
     Repository: https://github.com/khahuynh963/steal_a_monster.git
     Author: khahuynh963
     Tương thích 100%: Delta Executor (Android & PC), Codex, Wave, Hydrogen, Fluxus, Solara.
     
-    CÁC TÍNH NĂNG ĐƯỢC GIỮ LẠI (THEO YÊU CẦU):
-    1. ⚡ TĂNG TỐC ĐỘ CHẠY (SUPER SPEED BOOST): Hệ thống tốc độ siêu mượt 6 cấp độ (40 -> 300).
-    2. 🥷 MỘT NHẤN LẤY QUÁI VẬT (INSTANT 1-CLICK STEAL): Xóa thời gian chờ giữ nút (Hold = 0), tầm với xa, chạm 1 lần là bế ngay quái vật!
-    3. 🛡️ CHỐNG PHÁT HIỆN TĂNG TỐC ĐỘ (ANTI-CHEAT SPEED SPOOFER): Giả lập WalkSpeed 16 qua Metatable hook, chống game phát hiện/kick.
-    4. 💤 CHỐNG TREO MÁY AFK 24/7 (ANTI-AFK): Ngăn chặn bị ngắt kết nối sau 20 phút.
+    CÁC TÍNH NĂNG CHÍNH ĐÃ KHẮC PHỤC TRIỆT ĐỂ:
+    1. 🥷 1 NHẤN LẤY QUÁI VẬT (AUTO-HOLD 1-TAP STEAL):
+       - Không còn lỗi bị hủy hold! Script tự động giữ nút thay người chơi đúng thời lượng server yêu cầu (1.2s).
+       - Tự động ghim đứng yên vị trí khi cướp để không bị trượt ra ngoài.
+       - Tích hợp thêm Nút Nổi "⚡ CƯỚP NHANH" trên màn hình để chạm 1 phát là tự bế quái gần nhất!
+    2. ⚡ TĂNG TỐC ĐỘ CHẠY (SUPER SPEED BOOST):
+       - 6 Mức tốc độ từ 40 đến 300, kết hợp gia tốc CFrame siêu êm.
+    3. 🛡️ CHỐNG PHÁT HIỆN TỐC ĐỘ (SAFE ANTI-SPEED DETECT SPOOFER):
+       - Ngụy trang WalkSpeed = 16 an toàn, không can thiệp __newindex tránh lỗi kẹt trạng thái bế quái.
+    4. 💤 CHỐNG TREO MÁY AFK 24/7 (ANTI-AFK):
+       - Chống ngắt kết nối sau 20 phút.
     ===================================================================
 --]]
 
@@ -108,12 +114,12 @@ local Config = {
         { Name = "👑 Thần Tốc (Speed 220)", Value = 220, CFrameMult = 3.2 },
         { Name = "🔥 Max Flash God (Speed 300)", Value = 300, CFrameMult = 4.5 }
     },
-    CFrameSpeed = true, -- Hỗ trợ đẩy CFrame trực tiếp lướt siêu êm
+    CFrameSpeed = true,
     
     -- 2. Một nhấn lấy quái vật
     InstantSteal = true,
     ExtendRange = true,
-    PromptRange = 35,
+    PromptRange = 30,
     
     -- 3. Chống phát hiện tốc độ
     AntiSpeedDetect = true,
@@ -127,11 +133,13 @@ local Stats = {
     StealsCount = 0
 }
 
+local isHoldingMonster = false
+
 -- ===================================================================
--- 🛡️ MÔ-ĐUN 1: CHỐNG PHÁT HIỆN TĂNG TỐC ĐỘ (ANTI-CHEAT SPEED BYPASS)
+-- 🛡️ MÔ-ĐUN 1: CHỐNG PHÁT HIỆN TĂNG TỐC ĐỘ (SAFE ANTI-SPEED BYPASS)
 -- ===================================================================
--- Sử dụng Metatable Hooking (__index & __newindex) để khi các LocalScript
--- trong game kiểm tra Humanoid.WalkSpeed, hệ thống luôn trả về 16 (mặc định an toàn).
+-- Chỉ ngụy trang __index để khi game kiểm tra WalkSpeed thì thấy 16,
+-- TUYỆT ĐỐI KHÔNG chặn __newindex để game có thể gán trạng thái vác quái bình thường.
 pcall(function()
     if hookmetamethod then
         local oldIndex
@@ -139,26 +147,17 @@ pcall(function()
             if not checkcaller() and Config.AntiSpeedDetect then
                 pcall(function()
                     if self:IsA("Humanoid") and key == "WalkSpeed" then
-                        return 16
+                        local real = oldIndex(self, key)
+                        if real and real > 16 then
+                            return 16
+                        end
+                        return real
                     end
                 end)
             end
             return oldIndex(self, key)
         end))
-        
-        local oldNewIndex
-        oldNewIndex = hookmetamethod(game, "__newindex", newcclosure(function(self, key, value)
-            if not checkcaller() and Config.AntiSpeedDetect and Config.SpeedBoost then
-                pcall(function()
-                    if self:IsA("Humanoid") and key == "WalkSpeed" then
-                        -- Ngăn game tự ý hạ tốc độ người chơi về 16
-                        return
-                    end
-                end)
-            end
-            return oldNewIndex(self, key, value)
-        end))
-        print("[Steal a Monster Hub] Đã kích hoạt Metatable Hook chống phát hiện tốc độ thành công!")
+        print("[Steal a Monster Hub] Đã kích hoạt Metatable Hook chống phát hiện tốc độ an toàn!")
     end
 end)
 
@@ -170,7 +169,7 @@ local function applyCurrentSpeed()
         local char = LocalPlayer.Character
         local hum = char and char:FindFirstChildOfClass("Humanoid")
         if hum and hum.Health > 0 then
-            if Config.SpeedBoost then
+            if Config.SpeedBoost and not isHoldingMonster then
                 local preset = Config.SpeedPresets[Config.SpeedLevelIndex] or Config.SpeedPresets[2]
                 hum.WalkSpeed = preset.Value
             else
@@ -190,9 +189,9 @@ LocalPlayer.CharacterAdded:Connect(function(char)
     end
 end)
 
--- Duy trì tốc độ và gia tốc mượt mà qua Heartbeat
+-- Duy trì tốc độ và gia tốc mượt mà qua Heartbeat (Tự động hãm phanh khi đang cướp quái)
 RunService.Heartbeat:Connect(function(dt)
-    if Config.SpeedBoost then
+    if Config.SpeedBoost and not isHoldingMonster then
         pcall(function()
             local char = LocalPlayer.Character
             local hum = char and char:FindFirstChildOfClass("Humanoid")
@@ -205,7 +204,7 @@ RunService.Heartbeat:Connect(function(dt)
                     hum.WalkSpeed = preset.Value
                 end
                 
-                -- Gia tốc CFrame khi nhân vật đang di chuyển (Bỏ qua cơ chế làm chậm của game)
+                -- Gia tốc CFrame khi nhân vật đang di chuyển
                 if Config.CFrameSpeed and hum.MoveDirection.Magnitude > 0 then
                     local moveDir = hum.MoveDirection
                     local factor = (preset.CFrameMult or 1.0) * (dt * 60)
@@ -213,86 +212,171 @@ RunService.Heartbeat:Connect(function(dt)
                 end
             end
         end)
+    elseif isHoldingMonster then
+        pcall(function()
+            local char = LocalPlayer.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                hrp.AssemblyLinearVelocity = Vector3.zero
+            end
+        end)
     end
 end)
 
 -- ===================================================================
--- 🥷 MÔ-ĐUN 3: MỘT NHẤN LẤY QUÁI VẬT (INSTANT 1-CLICK STEAL)
+-- 🥷 MÔ-ĐUN 3: 1 NHẤN LẤY QUÁI VẬT (AUTO-HOLD 1-TAP STEAL)
 -- ===================================================================
--- Biến đổi toàn bộ ProximityPrompt trong game thành dạng không cần nhấn giữ (Hold = 0),
--- mở rộng tầm với xa để bạn chỉ cần chạm 1 lần là bế ngay quái vật!
-local function modifyPrompt(prompt)
-    if not prompt or not prompt:IsA("ProximityPrompt") then return end
+-- Hàm thực hiện cướp quái: Tự động giữ nút đủ thời lượng server yêu cầu,
+-- người chơi CHỈ CẦN CHẠM 1 LẦN mà không cần phải giữ tay trên màn hình!
+local function performStealHold(prompt)
+    if not prompt or not prompt:IsA("ProximityPrompt") or not prompt.Enabled then return end
+    if isHoldingMonster then return end
+    isHoldingMonster = true
     
-    pcall(function()
-        if Config.InstantSteal then
-            -- Xóa hoàn toàn thời gian nhấn giữ
-            prompt.HoldDuration = 0
-            
-            -- Bỏ yêu cầu đường nhìn (cho phép cướp xuyên góc kẹt)
-            prompt.RequiresLineOfSight = false
-            
-            -- Mở rộng tầm cướp xa nếu được bật
-            if Config.ExtendRange then
-                prompt.MaxActivationDistance = math.max(prompt.MaxActivationDistance, Config.PromptRange or 35)
+    task.spawn(function()
+        local char = LocalPlayer.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        
+        -- 1. Triệt tiêu vận tốc ngay lập tức để không bị trượt quán tính
+        if hrp then hrp.AssemblyLinearVelocity = Vector3.zero end
+        
+        -- 2. Đọc thời gian giữ thực tế của prompt (thường 1.0s - 1.5s)
+        local holdTime = prompt.HoldDuration
+        if not holdTime or holdTime <= 0 then holdTime = 1.2 end
+        
+        Stats.CurrentStatus = string.format("🥷 Đang tự động giữ cướp... (%.1fs - Không cần giữ tay!)", holdTime)
+        
+        -- 3. Khóa vị trí nhân vật cạnh quái vật trong suốt thời gian giữ
+        local lockCF = hrp and hrp.CFrame
+        local anchorConn
+        if hrp and lockCF then
+            anchorConn = RunService.Heartbeat:Connect(function()
+                if isHoldingMonster and hrp then
+                    hrp.CFrame = lockCF
+                    hrp.AssemblyLinearVelocity = Vector3.zero
+                end
+            end)
+        end
+        
+        -- 4. Bắt đầu giữ nút trên client
+        pcall(function()
+            prompt:InputHoldBegin()
+        end)
+        
+        -- 5. Đợi đúng thời gian quy định để server xác nhận hợp lệ
+        task.wait(holdTime + 0.15)
+        
+        -- 6. Hoàn tất giữ nút
+        pcall(function()
+            prompt:InputHoldEnd()
+        end)
+        
+        -- Dự phòng gọi thêm fireproximityprompt nếu executor hỗ trợ
+        pcall(function()
+            if fireproximityprompt then
+                fireproximityprompt(prompt, holdTime)
             end
+        end)
+        
+        -- Kích hoạt tín hiệu Triggered nếu có
+        pcall(function()
+            if firesignal and prompt.Triggered then
+                firesignal(prompt.Triggered, LocalPlayer)
+            end
+        end)
+        
+        -- Mở khóa nhân vật
+        if anchorConn then anchorConn:Disconnect() end
+        task.wait(0.2)
+        isHoldingMonster = false
+        
+        Stats.StealsCount = Stats.StealsCount + 1
+        Stats.CurrentStatus = string.format("✅ Cướp thành công! (Lần %d) - Đang kích hoạt tốc độ tẩu thoát!", Stats.StealsCount)
+    end)
+end
+
+-- Tối ưu hóa ProximityPrompt: Mở rộng tầm với và không yêu cầu góc nhìn thẳng
+local function optimizePrompt(prompt)
+    if not prompt or not prompt:IsA("ProximityPrompt") then return end
+    pcall(function()
+        -- GIỮ NGUYÊN HoldDuration của game để không bị server hủy cướp
+        prompt.RequiresLineOfSight = false
+        if Config.ExtendRange then
+            prompt.MaxActivationDistance = math.max(prompt.MaxActivationDistance, Config.PromptRange or 30)
         end
     end)
 end
 
--- Quét toàn bộ ProximityPrompt đang có sẵn trong Workspace
 pcall(function()
     for _, prompt in ipairs(Workspace:GetDescendants()) do
         if prompt:IsA("ProximityPrompt") then
-            modifyPrompt(prompt)
+            optimizePrompt(prompt)
         end
     end
 end)
 
--- Tự động sửa ngay lập tức các Prompt mới xuất hiện (khi quái vật mới sinh ra)
 Workspace.DescendantAdded:Connect(function(desc)
     if desc:IsA("ProximityPrompt") then
         task.wait(0.05)
-        modifyPrompt(desc)
+        optimizePrompt(desc)
     end
 end)
 
--- Lắng nghe sự kiện chạm giữ nút để kích hoạt ngay lập tức trong 1 khung hình
+-- Bắt sự kiện khi người chơi chạm/bấm 1 cái vào nút cướp trên màn hình
 if ProximityPromptService then
     pcall(function()
         ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt, player)
-            if player == LocalPlayer and Config.InstantSteal then
-                pcall(function()
-                    prompt.HoldDuration = 0
-                    if fireproximityprompt then
-                        fireproximityprompt(prompt, 0)
-                    elseif prompt.InputHoldBegin and prompt.InputHoldEnd then
-                        prompt:InputHoldBegin()
-                        prompt:InputHoldEnd()
-                    end
-                    Stats.StealsCount = Stats.StealsCount + 1
-                    Stats.CurrentStatus = string.format("🥷 Đã bế quái vật thành công! (Lần: %d)", Stats.StealsCount)
-                end)
+            if player == LocalPlayer and Config.InstantSteal and not isHoldingMonster then
+                local act = stripVietnameseAccents(prompt.ActionText)
+                local obj = stripVietnameseAccents(prompt.ObjectText)
+                local pName = prompt.Parent and stripVietnameseAccents(prompt.Parent.Name) or ""
+                
+                -- Nhận diện prompt cướp quái vật
+                local isSteal = act:find("steal") or act:find("cap") or act:find("cuop") or act:find("take") or act:find("grab") or act:find("lay") or act:find("be")
+                             or obj:find("monster") or obj:find("steal") or obj:find("quai")
+                             or pName:find("monster") or pName:find("quai") or act == ""
+                
+                if isSteal then
+                    performStealHold(prompt)
+                end
             end
         end)
     end)
 end
 
--- Vòng lặp tuần hoàn đảm bảo không bị game đặt lại HoldDuration
-task.spawn(function()
-    while true do
-        task.wait(2.0)
-        if Config.InstantSteal then
-            pcall(function()
-                for _, prompt in ipairs(Workspace:GetDescendants()) do
-                    if prompt:IsA("ProximityPrompt") and prompt.HoldDuration > 0 then
-                        modifyPrompt(prompt)
+-- Tìm quái vật có prompt cướp ở gần nhất trong phạm vi maxDist
+local function findNearestStealPrompt(maxDist)
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return nil end
+    
+    local nearestPrompt = nil
+    local shortestDist = maxDist or 30
+    
+    for _, prompt in ipairs(Workspace:GetDescendants()) do
+        if prompt:IsA("ProximityPrompt") and prompt.Enabled and prompt.Parent then
+            local pPart = prompt.Parent:IsA("BasePart") and prompt.Parent or prompt.Parent:FindFirstChildWhichIsA("BasePart")
+            if pPart then
+                local dist = (pPart.Position - hrp.Position).Magnitude
+                if dist < shortestDist then
+                    local act = stripVietnameseAccents(prompt.ActionText)
+                    local obj = stripVietnameseAccents(prompt.ObjectText)
+                    local pName = stripVietnameseAccents(prompt.Parent.Name)
+                    
+                    local isSteal = act:find("steal") or act:find("cap") or act:find("cuop") or act:find("take") or act:find("grab") or act:find("lay") or act:find("be")
+                                 or obj:find("monster") or obj:find("steal") or obj:find("quai")
+                                 or pName:find("monster") or pName:find("quai") or act == ""
+                    
+                    if isSteal then
+                        shortestDist = dist
+                        nearestPrompt = prompt
                     end
                 end
-            end)
+            end
         end
     end
-end)
+    return nearestPrompt
+end
 
 -- ===================================================================
 -- 💤 MÔ-ĐUN 4: CHỐNG TREO MÁY AFK 24/7 (ANTI-AFK)
@@ -390,11 +474,70 @@ do
     end)
 end
 
--- ── 2. KHUNG ĐIỀU KHIỂN CHÍNH (MAIN FRAME TINH GỌN) ──
+-- ── 2. NÚT NỔI "⚡ CƯỚP NHANH" DÀNH CHO ĐIỆN THOẠI (QUICK STEAL FLOATING BUTTON) ──
+local QuickStealBtn = Instance.new("TextButton")
+QuickStealBtn.Name = "QuickStealFloatingBtn"
+QuickStealBtn.Size = UDim2.new(0, 52, 0, 52)
+QuickStealBtn.Position = UDim2.new(0.04, 0, 0.32, 0)
+QuickStealBtn.BackgroundColor3 = Color3.fromRGB(245, 158, 11) -- Vàng cam nổi bật
+QuickStealBtn.BorderSizePixel = 0
+QuickStealBtn.AutoButtonColor = true
+QuickStealBtn.Text = "⚡"
+QuickStealBtn.TextSize = 28
+QuickStealBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+QuickStealBtn.ZIndex = 1000
+QuickStealBtn.Parent = ScreenGui
+
+local QuickCorner = Instance.new("UICorner")
+QuickCorner.CornerRadius = UDim.new(1, 0)
+QuickCorner.Parent = QuickStealBtn
+
+local QuickStroke = Instance.new("UIStroke")
+QuickStroke.Color = Color3.fromRGB(16, 185, 129)
+QuickStroke.Thickness = 2.5
+QuickStroke.Parent = QuickStealBtn
+
+-- Kéo thả nút Cướp Nhanh
+do
+    local dragging, dragStart, startPos
+    QuickStealBtn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = QuickStealBtn.Position
+        end
+    end)
+    QuickStealBtn.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            QuickStealBtn.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + delta.X,
+                startPos.Y.Scale, startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+end
+
+-- Chạm nút ⚡ để tự động cướp quái vật gần nhất ngay lập tức
+QuickStealBtn.MouseButton1Click:Connect(function()
+    local prompt = findNearestStealPrompt(35)
+    if prompt then
+        performStealHold(prompt)
+    else
+        Stats.CurrentStatus = "⚠️ Hãy lại gần quái vật trong căn cứ đối thủ rồi bấm ⚡!"
+    end
+end)
+
+-- ── 3. KHUNG ĐIỀU KHIỂN CHÍNH (MAIN FRAME TINH GỌN) ──
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 460, 0, 360)
-MainFrame.Position = UDim2.new(0.5, -230, 0.5, -180)
+MainFrame.Size = UDim2.new(0, 460, 0, 370)
+MainFrame.Position = UDim2.new(0.5, -230, 0.5, -185)
 MainFrame.BackgroundColor3 = Color3.fromRGB(15, 23, 42) -- Nền tối ánh đá núi lửa
 MainFrame.BorderSizePixel = 0
 MainFrame.ClipsDescendants = true
@@ -436,7 +579,7 @@ do
     end)
 end
 
--- Bấm nút tròn để ẩn/hiện bảng điều khiển
+-- Bấm nút tròn 🦖 để ẩn/hiện bảng điều khiển
 FloatingBtn.MouseButton1Click:Connect(function()
     MainFrame.Visible = not MainFrame.Visible
 end)
@@ -453,9 +596,9 @@ local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(1, -90, 1, 0)
 TitleLabel.Position = UDim2.new(0, 14, 0, 0)
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "🦖 STEAL A MONSTER - SPEED & 1-CLICK"
+TitleLabel.Text = "🦖 STEAL A MONSTER - SPEED & 1-CLICK V2.1"
 TitleLabel.TextColor3 = Color3.fromRGB(245, 158, 11)
-TitleLabel.TextSize = 14
+TitleLabel.TextSize = 13
 TitleLabel.Font = Enum.Font.GothamBold
 TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 TitleLabel.Parent = Header
@@ -505,7 +648,7 @@ StatusText.Parent = StatusBanner
 
 task.spawn(function()
     while true do
-        task.wait(0.5)
+        task.wait(0.4)
         pcall(function()
             StatusText.Text = "Trạng thái: " .. Stats.CurrentStatus
         end)
@@ -519,7 +662,7 @@ ScrollList.Size = UDim2.new(1, -24, 1, -92)
 ScrollList.Position = UDim2.new(0, 12, 0, 86)
 ScrollList.BackgroundTransparency = 1
 ScrollList.BorderSizePixel = 0
-ScrollList.CanvasSize = UDim2.new(0, 0, 0, 360)
+ScrollList.CanvasSize = UDim2.new(0, 0, 0, 390)
 ScrollList.ScrollBarThickness = 4
 ScrollList.ScrollBarImageColor3 = Color3.fromRGB(16, 185, 129)
 ScrollList.Parent = MainFrame
@@ -587,11 +730,72 @@ local function createToggle(parent, title, desc, defaultVal, callback)
     return frame
 end
 
+-- ── Helper tạo Action Button ──
+local function createActionButton(parent, title, btnText, color, callback)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, 0, 0, 42)
+    frame.BackgroundColor3 = Color3.fromRGB(24, 34, 53)
+    frame.BorderSizePixel = 0
+    frame.Parent = parent
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = frame
+
+    local titleLbl = Instance.new("TextLabel")
+    titleLbl.Size = UDim2.new(1, -120, 1, 0)
+    titleLbl.Position = UDim2.new(0, 10, 0, 0)
+    titleLbl.BackgroundTransparency = 1
+    titleLbl.Text = title
+    titleLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLbl.TextSize = 12
+    titleLbl.Font = Enum.Font.GothamBold
+    titleLbl.TextXAlignment = Enum.TextXAlignment.Left
+    titleLbl.Parent = frame
+
+    local actionBtn = Instance.new("TextButton")
+    actionBtn.Size = UDim2.new(0, 100, 0, 28)
+    actionBtn.Position = UDim2.new(1, -110, 0, 7)
+    actionBtn.BackgroundColor3 = color or Color3.fromRGB(16, 185, 129)
+    actionBtn.Text = btnText
+    actionBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    actionBtn.TextSize = 11
+    actionBtn.Font = Enum.Font.GothamBold
+    actionBtn.Parent = frame
+
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0, 6)
+    btnCorner.Parent = actionBtn
+
+    actionBtn.MouseButton1Click:Connect(callback)
+    return frame
+end
+
 -- ===================================================================
 -- CÁC TÍNH NĂNG ĐƯỢC HIỂN THỊ TRÊN GIAO DIỆN
 -- ===================================================================
 
--- 1. BẬT / TẮT TĂNG TỐC ĐỘ CHẠY
+-- 1. NÚT THỰC THI CƯỚP QUÁI GẦN NHẤT
+createActionButton(ScrollList, "⚡ Cướp Quái Vật Gần Nhất (1-Chạm)", "CƯỚP NGAY", Color3.fromRGB(245, 158, 11), function()
+    local prompt = findNearestStealPrompt(35)
+    if prompt then
+        performStealHold(prompt)
+    else
+        Stats.CurrentStatus = "⚠️ Hãy tiến lại gần quái vật đối thủ rồi bấm CƯỚP NGAY!"
+    end
+end)
+
+-- 2. BẬT / TẮT 1 NHẤN LẤY QUÁI VẬT
+createToggle(ScrollList, "🥷 1 Nhấn Lấy Quái Vật (Auto-Hold)", "Chạm 1 cái là tự giữ nút bế quái, không cần giữ tay!", Config.InstantSteal, function(val)
+    Config.InstantSteal = val
+    if val then
+        Stats.CurrentStatus = "🥷 Đã bật 1 Nhấn Lấy Quái! Chạm 1 cái là tự cướp."
+    else
+        Stats.CurrentStatus = "Đã tắt 1 Nhấn Lấy Quái."
+    end
+end)
+
+-- 3. BẬT / TẮT TĂNG TỐC ĐỘ CHẠY
 createToggle(ScrollList, "⚡ Tăng Tốc Độ Chạy (Speed Boost)", "Bật tốc độ di chuyển siêu tốc độ giúp lướt nhanh quanh map", Config.SpeedBoost, function(val)
     Config.SpeedBoost = val
     applyCurrentSpeed()
@@ -603,7 +807,7 @@ createToggle(ScrollList, "⚡ Tăng Tốc Độ Chạy (Speed Boost)", "Bật t�
     end
 end)
 
--- 2. CHỌN MỨC TỐC ĐỘ
+-- 4. CHỌN MỨC TỐC ĐỘ
 do
     local speedFrame = Instance.new("Frame")
     speedFrame.Size = UDim2.new(1, 0, 0, 42)
@@ -630,7 +834,7 @@ do
     local speedBtn = Instance.new("TextButton")
     speedBtn.Size = UDim2.new(1, -155, 0, 28)
     speedBtn.Position = UDim2.new(0, 145, 0, 7)
-    speedBtn.BackgroundColor3 = Color3.fromRGB(245, 158, 11)
+    speedBtn.BackgroundColor3 = Color3.fromRGB(16, 185, 129)
     speedBtn.Text = currentPreset.Name
     speedBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     speedBtn.TextSize = 11
@@ -655,24 +859,7 @@ do
     end)
 end
 
--- 3. MỘT NHẤN LẤY QUÁI VẬT (INSTANT 1-CLICK STEAL)
-createToggle(ScrollList, "🥷 1 Nhấn Lấy Quái Vật (Instant Steal)", "Xóa thời gian giữ (Hold = 0s), chạm 1 lần là bế ngay quái!", Config.InstantSteal, function(val)
-    Config.InstantSteal = val
-    if val then
-        pcall(function()
-            for _, prompt in ipairs(Workspace:GetDescendants()) do
-                if prompt:IsA("ProximityPrompt") then
-                    modifyPrompt(prompt)
-                end
-            end
-        end)
-        Stats.CurrentStatus = "🥷 Đã bật 1 Nhấn Lấy Quái (Hold = 0s)!"
-    else
-        Stats.CurrentStatus = "Đã tắt 1 Nhấn Lấy Quái."
-    end
-end)
-
--- 4. CHỐNG PHÁT HIỆN TĂNG TỐC ĐỘ (ANTI-SPEED DETECT BYPASS)
+-- 5. CHỐNG PHÁT HIỆN TĂNG TỐC ĐỘ (ANTI-SPEED DETECT BYPASS)
 createToggle(ScrollList, "🛡️ Chống Phát Hiện Tốc Độ (Anti-Detect)", "Ẩn chỉ số WalkSpeed qua Metatable, chống game phát hiện/kick", Config.AntiSpeedDetect, function(val)
     Config.AntiSpeedDetect = val
     if val then
@@ -682,11 +869,11 @@ createToggle(ScrollList, "🛡️ Chống Phát Hiện Tốc Độ (Anti-Detect)
     end
 end)
 
--- 5. CHỐNG TREO MÁY AFK 24/7
+-- 6. CHỐNG TREO MÁY AFK 24/7
 createToggle(ScrollList, "💤 Chống Treo Máy AFK 24/7 (Anti-AFK)", "Tự động chống văng game sau 20 phút khi treo máy", Config.AntiAFK, function(val)
     Config.AntiAFK = val
 end)
 
 -- ── Thông báo khởi động ──
-print("[Steal a Monster Hub] Khởi động thành công Bản Tinh Gọn V2.0!")
-Stats.CurrentStatus = "Sẵn sàng hoạt động! Chạm 1 lần để bế ngay quái vật."
+print("[Steal a Monster Hub] Khởi động thành công Bản V2.1!")
+Stats.CurrentStatus = "Sẵn sàng hoạt động! Hãy chạm 1 lần hoặc bấm nút ⚡ để cướp quái."
